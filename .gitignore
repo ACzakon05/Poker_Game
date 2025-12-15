@@ -1,0 +1,19 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-check-report.xml
+**/*.class
+**/TEST-*.xml
+
+# IntelliJ/IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Operating System Files
+.DS_Store
+Thumbs.db

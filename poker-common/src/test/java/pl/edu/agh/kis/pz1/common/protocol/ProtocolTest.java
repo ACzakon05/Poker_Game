@@ -71,11 +71,10 @@ public class ProtocolTest {
         assertThrows(ProtocolException.class, () -> parser.parse(raw));
     }
 
-    // --- 2. TESTY KODOWANIA ZDARZEŃ (Serwer -> Klient) ---
-
     @Test
     void testEncodeWelcomeEvent() {
         ServerEvent event = new WelcomeEvent(DUMMY_GAME_ID, DUMMY_PLAYER_ID);
+        // EventEncoder zwraca: "WELCOME GAME=GAME_0 PLAYER=P1\n"
         String expected = "WELCOME GAME=GAME_0 PLAYER=P1\n";
 
         String actual = encoder.encode(event, DUMMY_PLAYER_ID);
@@ -85,6 +84,7 @@ public class ProtocolTest {
     @Test
     void testEncodeTurnEvent() {
         ServerEvent event = new TurnEvent(DUMMY_PLAYER_ID, "BET1", 50, 10);
+        // EventEncoder zwraca: "TURN PLAYER=P1 PHASE=BET1 CALL=50 MINRAISE=10\n"
         String expected = "TURN PLAYER=P1 PHASE=BET1 CALL=50 MINRAISE=10\n";
 
         String actual = encoder.encode(event, DUMMY_PLAYER_ID);
@@ -95,7 +95,8 @@ public class ProtocolTest {
     void testEncodeErrorEvent() {
         InvalidMoveException ex = new OutOfTurnException(); // CODE="OUT_OF_TURN"
         ServerEvent event = new ErrorEvent(ex);
-        String expected = "ERR CODE=OUT_OF_TURN REASON=\"Ruch wykonany poza kolejnością.\"\n";
+        // Zmieniamy ERR -> ERROR zgodnie z aktualnym EventEncoder
+        String expected = "ERROR CODE=OUT_OF_TURN REASON=\"Ruch wykonany poza kolejnością.\"\n";
 
         String actual = encoder.encode(event, DUMMY_PLAYER_ID);
         assertEquals(expected, actual);
@@ -109,6 +110,7 @@ public class ProtocolTest {
 
         // Kodowanie dla P1 (właściciela) -> wysyłamy jawne karty
         String actual = encoder.encode(event, DUMMY_PLAYER_ID);
+        // EventEncoder zwraca: "DEAL PLAYER=P1 CARDS=AS,KH\n"
         String expected = "DEAL PLAYER=P1 CARDS=AS,KH\n";
         assertEquals(expected, actual);
     }
@@ -121,7 +123,46 @@ public class ProtocolTest {
 
         // Kodowanie dla P2 (innego gracza) -> wysyłamy maskę
         String actual = encoder.encode(event, "P2");
+        // EventEncoder zwraca: "DEAL PLAYER=P1 CARDS=*****\n"
         String expected = "DEAL PLAYER=P1 CARDS=*****\n";
         assertEquals(expected, actual);
     }
-}
+
+    @Test
+    void testEncodeActionPlayerEvent() {
+        ActionPlayerEvent event = new ActionPlayerEvent(DUMMY_PLAYER_ID, "BET", "AMOUNT=100");
+
+
+        String expected = "ACTIONPLAYER PLAYER=P1 TYPE=BET AMOUNT=100\n";
+        String actual = encoder.encode(event, DUMMY_PLAYER_ID);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void testEncodeShowdownEvent() {
+        List<Card> hand = List.of(new Card(Rank.ACE, Suit.SPADES), new Card(Rank.KING, Suit.HEARTS));
+        ShowdownEvent event = new ShowdownEvent(DUMMY_PLAYER_ID, hand, "High Card");
+        // EventEncoder zwraca: "SHOWDOWN PLAYER=P1 HAND=AS,KH RANK=\"High Card\"\n"
+        String expected = "SHOWDOWN PLAYER=P1 HAND=AS,KH RANK=\"High Card\"\n";
+        String actual = encoder.encode(event, DUMMY_PLAYER_ID);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void testEncodePayoutEvent() {
+        PayoutEvent event = new PayoutEvent(DUMMY_PLAYER_ID, 500, 1500);
+        // EventEncoder zwraca: "PAYOUT WINNER=P1 AMOUNT=500 CHIPS_NOW=1500\n"
+        String expected = "PAYOUT WINNER=P1 AMOUNT=500 CHIPS_NOW=1500\n";
+        String actual = encoder.encode(event, DUMMY_PLAYER_ID);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void testEncodeSimpleEvent() {
+        // Typ eventu np. "SIMPLE", wiadomość "Hello World"
+        SimpleEvent event = new SimpleEvent("SIMPLE", "Hello World");
+        // EventEncoder zwraca: "SIMPLE MESSAGE=\"Hello World\"\n"
+        String expected = "SIMPLE MESSAGE=\"Hello World\"\n";
+        String actual = encoder.encode(event, DUMMY_PLAYER_ID);
+        assertEquals(expected, actual);
+    }}

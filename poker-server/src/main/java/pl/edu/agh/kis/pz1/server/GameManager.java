@@ -77,7 +77,7 @@ public class GameManager {
     private void broadcastLobbyStatus() {
 
         String status = playersInGame.stream().map(Player::getName).collect(Collectors.joining(", "));
-        // W pełnej implementacji: broadcastEvent(new LobbyEvent(status));
+        //broadcastEvent(new LobbyEvent(status));
         System.out.println("Lobby Status: " + status);
     }
 
@@ -89,12 +89,12 @@ public class GameManager {
 
             if (disconnectedPlayer != null) {
 
-                // 1. Zabezpieczenie stanu gracza
-                disconnectedPlayer.setFolded(true); // Gracz automatycznie spasował
+                // 1. Zabezpieczenie stanu gracza (MUSI być na początku)
+                disconnectedPlayer.setFolded(true);
 
                 // 2. Usunięcie powiązań sieciowych i lobby
                 handlers.remove(playerId);
-                GameLobby.getInstance().unregisterPlayer(playerId); // Wymaga tej metody w GameLobby
+                // GameLobby.getInstance().unregisterPlayer(playerId);
 
                 System.out.println("[INFO] Gracz " + disconnectedPlayer.getName() + " (ID: " + playerId + ") rozłączony.");
 
@@ -104,21 +104,11 @@ public class GameManager {
                     // Poinformuj innych graczy o spasowaniu/rozłączeniu
                     broadcastEvent(new ActionPlayerEvent(playerId, "FOLD", "DISCONNECT"));
 
-                    // Sprawdzenie, czy to była jego tura
-                    if (currentTurnPlayer != null && currentTurnPlayer.getId().equals(playerId)) {
-                        // Przesuń turę do następnego aktywnego gracza
-                        advanceTurn();
-                    } else {
-                        // Jeśli rozłączony gracz nie był na ruchu,
-                        // musimy sprawdzić, czy jego rozłączenie nie zakończyło licytacji (np. został tylko jeden gracz).
-                        long activePlayersCount = playersInGame.stream().filter(p -> !p.isFolded()).count();
-                        if (activePlayersCount <= 1) {
-                            transitionToNextPhase();
-                        }
-                    }
+                    // KLUCZOWA ZMIANA: Usunięcie if/else i agresywne wywołanie advanceTurn().
+                    // To zmusza system do natychmiastowego przesunięcia tury, jeśli była na nim,
+                    // lub sprawdzenia warunków zakończenia licytacji, jeśli jego FOLD to umożliwił.
+                    advanceTurn();
                 }
-                // UWAGA: Gracz nie jest usuwany z listy playersInGame, dopóki runda się nie skończy,
-                // aby utrzymać stałą kolejność dealerIndex i turnIndex.
             }
         }
     }
@@ -152,7 +142,7 @@ public class GameManager {
     // --- WALIDACJE I KOLEJKA RUCHU ---
 
     // ... (getPlayer i validateTurn bez zmian) ...
-    private Player getPlayer(String playerId) {
+    Player getPlayer(String playerId) {
         return playersInGame.stream()
                 .filter(p -> p.getId().equals(playerId))
                 .findFirst()
@@ -165,7 +155,7 @@ public class GameManager {
         }
     }
 
-    // W GameManager.java
+
 
     private void advanceTurn() {
         int activePlayersCount = (int) playersInGame.stream().filter(p -> !p.isFolded()).count();
@@ -221,7 +211,7 @@ public class GameManager {
 
                 // C) Ustawienie nowego gracza na ruchu i wysłanie eventu
                 this.currentTurnPlayer = nextPlayer;
-                startBettingRound();
+                startTurn();
                 return;
             }
         } while (turnIndex != startIndex);
@@ -232,16 +222,16 @@ public class GameManager {
 
     // --- MASZYNA STANÓW: Obsługa Przejść ---
 
-    private void transitionTo(GameState newState) {
+    void transitionTo(GameState newState) {
         this.currentState = newState;
         System.out.println("Gra " + gameId + ": Przejście do stanu: " + newState);
 
         switch (newState) {
             case ANTE -> startAntePhase();
             case DEAL -> dealCardsPhase();
-            case BET1 -> startBettingRound();
-            case DRAW -> transitionToDrawPhase();
-            case BET2 -> startBettingRound();
+            case BET1 -> startTurn();
+            case DRAW -> transitionToDrawPhaseLogic();
+            case BET2 -> startTurn();
             case SHOWDOWN -> showDownPhase();
             case PAYOUT -> payoutPhase();
             case END -> endRoundPhase();
@@ -322,7 +312,7 @@ public class GameManager {
         transitionTo(GameState.BET1);
     }
 
-    private void transitionToDrawPhase() {
+    private void transitionToDrawPhaseLogic() {
         // Faza DRAW następuje po pierwszej rundzie zakładów (BET1).
 
         // 1. Zresetowanie stanu zakładów przed fazą wymiany
@@ -346,13 +336,11 @@ public class GameManager {
 
         // 3. Rozpoczęcie tury wymiany i OGRANICZENIE pętli
         if (this.currentTurnPlayer != null && !this.currentTurnPlayer.isFolded()) {
-            // Poprawne wywołanie metody rozpoczynającej turę (która wysyła TURN event)
-            startBettingRound();
+            startTurn(); // Ta metoda teraz użyje currentState (które jest już DRAW)
         } else {
             // Jeśli nie ma aktywnych graczy (np. wszyscy spasowali), natychmiast przejdź do BET2
             transitionToNextPhase(); // -> Przejdzie do BET2
         }
-
 
     }
 
@@ -458,7 +446,7 @@ public class GameManager {
 
 
 
-    private void handleBettingCommand(String playerId, ClientCommand command) {
+    void handleBettingCommand(String playerId, ClientCommand command) {
         if (command instanceof BetCommand bet) {
             Player player = getPlayer(playerId);
             int amountToCall = highestBetInRound - player.getCurrentBet();
@@ -515,7 +503,7 @@ public class GameManager {
         }
     }
 
-    private void handleDrawCommand(String playerId, ClientCommand command) {
+    void handleDrawCommand(String playerId, ClientCommand command) {
         if (command instanceof DrawCommand draw) {
             Player player = getPlayer(playerId);
             List<Integer> indices = draw.getCardIndices();
@@ -540,36 +528,53 @@ public class GameManager {
             broadcastEvent(new ActionPlayerEvent(playerId, "DRAW", "COUNT=" + newCards.size()));
 
             // Wysłanie nowej ręki tylko do tego gracza (w pełnej implementacji)
-            // sendEvent(playerId, new DealEvent(playerId, player.getHand(), ""));
-
+            sendEvent(playerId, new DealEvent(playerId, player.getHand(), ""));
+            player.setHasActed(true);
             advanceTurn();
         } else {
             throw new InvalidMoveException("WRONG_COMMAND", "W fazie DRAW oczekiwano komendy DRAW.");
         }
     }
 
-    private void startBettingRound() {
-        // 1. Upewniamy się, że currentTurnPlayer jest ustawiony przez advanceTurn
+    // W GameManager.java (Zmieniona startBettingRound)
+    private void startTurn() { // Zmieniamy nazwę na startTurn dla klarowności
+        // 1. Upewniamy się, że currentTurnPlayer jest ustawiony
         if (currentTurnPlayer == null) {
-            System.err.println("Błąd: currentTurnPlayer jest null w startBettingRound.");
-            // W przypadku błędu, przejdź do następnej fazy
+            System.err.println("Błąd: currentTurnPlayer jest null w startTurn.");
             transitionToNextPhase();
             return;
         }
 
-        // 2. Pobieramy gracza na ruchu
         Player player = currentTurnPlayer;
+        String phaseName = currentState.name();
 
-        // 3. Obliczamy kwoty do wyrównania/podbicia
-        int callAmount = highestBetInRound - player.getCurrentBet();
-        int minRaise = fixedBet;
+        // --- KLUCZOWA ZMIANA LOGIKI ---
 
-        // 4. Wysyłamy TURN event
-        TurnEvent turnEvent = new TurnEvent(player.getId(), currentState.name(), callAmount, minRaise);
-        sendEvent(player.getId(), turnEvent);
+        // 2. Obsługa fazy DRAW (Wymiana Kart)
+        if (currentState == GameState.DRAW) {
+            // W fazie DRAW nie ma licytacji, więc CALL/RAISE wynoszą -1 (lub 0)
+            // Wysłanie Eventu TURN, ale klient musi wiedzieć, że to DRAW
 
-        System.out.println("[RUCH] Tura gracza " + player.getName() +
-                " (CALL: " + callAmount + ", MIN_RAISE: " + minRaise + ")");
+            TurnEvent drawTurnEvent = new TurnEvent(player.getId(), phaseName, 0, 0); // Użyjemy 0,0, a klient musi interpretować fazę
+            sendEvent(player.getId(), drawTurnEvent);
+
+            System.out.println("[RUCH] Tura gracza " + player.getName() + " (FAZA WYMIANY)");
+            return;
+        }
+
+        // 3. Obsługa faz licytacji (BET1, BET2)
+        if (currentState == GameState.BET1 || currentState == GameState.BET2) {
+            // Obliczamy kwoty do wyrównania/podbicia
+            int callAmount = highestBetInRound - player.getCurrentBet();
+            int minRaise = fixedBet;
+
+            // Wysyłamy standardowy TURN event z parametrami licytacji
+            TurnEvent betTurnEvent = new TurnEvent(player.getId(), phaseName, callAmount, minRaise);
+            sendEvent(player.getId(), betTurnEvent);
+
+            System.out.println("[RUCH] Tura gracza " + player.getName() +
+                    " (CALL: " + callAmount + ", MIN_RAISE: " + minRaise + ")");
+        }
     }
 
     // --- METODY KOMUNIKACYJNE (WYSYŁANIE) ---
@@ -594,4 +599,19 @@ public class GameManager {
                 .forEach(handler -> handler.sendEvent(event));
     }
 
+    public GameState getCurrentState() {
+        return this.currentState;
+    }
+
+    public Player getCurrentTurnPlayer() {
+        return this.currentTurnPlayer;
+    }
+
+    public void setCurrentTurnPlayer(Player playerA) {
+        this.currentTurnPlayer = playerA;
+    }
+
+    public int getHighestBetInRound() {
+        return this.highestBetInRound;
+    }
 }

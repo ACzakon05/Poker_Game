@@ -3,10 +3,7 @@ package pl.edu.agh.kis.pz1.common.protocol;
 import pl.edu.agh.kis.pz1.common.protocol.commands.*;
 import pl.edu.agh.kis.pz1.model.exceptions.ProtocolException;
 
-import java.util.Arrays; // Dodany import
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors; // Dodany import
@@ -128,6 +125,9 @@ public class CommandParser {
     private ClientCommand parseDrawCommand(Map<String, String> params, String action) throws ProtocolException {
         String cardsString = getRequiredParam(params, "CARDS", action);
         List<Integer> cardIndices;
+        if (cardsString.isEmpty()) {
+            return new DrawCommand(Collections.emptyList());
+        }
 
         try {
             // Parsowanie listy indeksów (oddzielonych przecinkami)

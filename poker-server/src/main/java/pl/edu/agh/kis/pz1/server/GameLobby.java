@@ -72,4 +72,9 @@ public class GameLobby {
     public void unregisterPlayer(String playerId) {
         playerToGameMap.remove(playerId);
     }
+
+    public void reset() {
+        activeGames.clear();
+        playerToGameMap.clear();
+    }
 }

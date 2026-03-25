@@ -1,16 +1,83 @@
-1. JAK URUCHOMIĆ:
--mvn clean install
--lobby: java -jar poker-server/target/poker-server-1.0-SNAPSHOT.jar 4
--w osobnych terminalach gracze: java -jar poker-client/target/poker-client-1.0-SNAPSHOT.jar
--dołącznie do gry dla każdego gracza: JOIN GAME=GAME_0 NAME=ADAM
--rozpoczęcie: pierwszy gracz (host) wpisuje komendę START
--przejście ANTE,DEAL: serwer sam pobiera ante i rozdaje karty
--BET1: wszyscy muszą wyrównac za pomocą komend CALL lub BET AMOUNT albo spasować czyli FOLD
--DRAW: gracze wymieniają karty za pomocą komendy DRAW CARDS=<indeksy kart> ( jeśli nie chcesz wymienić karty to 'DRAW CARDS=,')
--BET2: Można sprawdzić: CHECK, Można podbic BET AMOUNT, Można wyrównać CALL
--przejscie SHOWDOWN,PAYOUT. Zwycięzca otrzymuje żetony
--przejście END, LOBBY
+
+
+# Poker Game (Java)
+
+**Opis projektu:**
+Projekt implementuje pełną logikę gry w pokera w trybie klient-serwer w Java. Aplikacja została stworzona w oparciu o zasady OOP, z użyciem Mavena do zarządzania projektem oraz narzędzi do testowania i analizy jakości kodu (JUnit, Jacoco, SonarQube).
+Gracze mogą dołączać do gry, wykonywać wszystkie typowe akcje w rundach pokerowych (BET, CALL, FOLD, DRAW), a serwer automatycznie obsługuje kolejne fazy gry, takie jak ante, rozdanie kart i showdown.
+
+---
+
+## Funkcjonalności
+
+* Pełna logika gry w pokera (5-card draw)
+* Tryb klient-serwer umożliwiający grę wieloosobową
+* Automatyczne przechodzenie faz gry: ANTE → DEAL → BET1 → DRAW → BET2 → SHOWDOWN → PAYOUT → END → LOBBY
+* Komendy dla graczy: `JOIN`, `START`, `CALL`, `BET AMOUNT`, `FOLD`, `DRAW CARDS=<indeksy>`, `CHECK`
+* Integracja z Mavenem i testy jednostkowe przy użyciu JUnit
+* Analiza jakości kodu z Jacoco i SonarQube
+
+---
+
+## Jak uruchomić
+
+1. Zbuduj projekt:
+
+```bash
+mvn clean install
+```
+
+2. Uruchom serwer (przykład z 4 graczami):
+
+```bash
+java -jar poker-server/target/poker-server-1.0-SNAPSHOT.jar 4
+```
+
+3. Uruchom klientów w osobnych terminalach:
+
+```bash
+java -jar poker-client/target/poker-client-1.0-SNAPSHOT.jar
+```
+
+4. Dołączanie graczy do gry:
+
+```
+JOIN GAME=GAME_0 NAME=ADAM
+```
+
+5. Rozpoczęcie gry (host):
+
+```
+START
+```
+
+6. Kolejne fazy gry:
+
+* **ANTE, DEAL:** serwer automatycznie pobiera ante i rozdaje karty
+* **BET1:** gracze wyrównują stawki (`CALL`), podbijają (`BET AMOUNT`) lub pasują (`FOLD`)
+* **DRAW:** wymiana kart:
+
+```
+DRAW CARDS=<indeksy kart>
+```
+
+jeśli nie wymieniasz kart: `DRAW CARDS=,`
+
+* **BET2:** opcje: `CHECK`, `BET AMOUNT`, `CALL`
+* **SHOWDOWN → PAYOUT:** serwer ogłasza zwycięzcę i przyznaje żetony
+* **END → LOBBY:** powrót do lobby
+
+---
+
+## Technologie
+
+* Java 
+* Maven
+* JUnit
+* Jacoco
+* SonarQube
+
+---
 
 
 
-mvn clean verify sonar:sonar   -Dsonar.projectKey=Poker-pz1   -Dsonar.projectName='Poker-pz1'   -Dsonar.host.url=http://localhost:9000   -Dsonar.token=sqp_3a9afaacb8ef8b21cebc7fe2692ac7f7a834570b
